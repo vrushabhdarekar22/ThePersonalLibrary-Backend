@@ -1,6 +1,6 @@
 import { IsString, IsNotEmpty, IsNumber, Min, Max } from 'class-validator';
 
-//it is basically structure of book
+//it is basically validates structure of book
 export class CreateBookDto {
   @IsString()
   @IsNotEmpty()

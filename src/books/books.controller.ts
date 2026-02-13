@@ -7,9 +7,21 @@ export class BooksController {
   constructor(private readonly booksService: BooksService) {}
 
   @Get()
-  findAll(@Query('genre') genre?: string) {
-    return this.booksService.findAll(genre);
+  findAll(
+    @Query('genre') genre?: string,
+    @Query('search') search?: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '6',
+  ) {
+    return this.booksService.findAll(
+      genre,
+      search,
+      Number(page),
+      Number(limit),
+    );
   }
+
+
 
   @Post()
   create(@Body() createBookDto: CreateBookDto) {
