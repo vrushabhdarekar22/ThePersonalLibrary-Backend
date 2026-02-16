@@ -1,90 +1,88 @@
-import { Injectable ,NotFoundException} from '@nestjs/common';
-import {Book} from './book.interface';
-import {CreateBookDto} from './dto/create-book.dto';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, ILike } from 'typeorm';
+import { Book } from './book.entity';
+import { CreateBookDto } from './dto/create-book.dto';
 
 @Injectable() //this basically marks this class as Provider/service
 export class BooksService {
-    //1.here we`ll use in-memory array
-    private books:Book[] = []; //at evry time we restart server it will start with empty
 
-    //2.create Book
-    create(createBookDto : CreateBookDto): Book {
-        const newBook: Book = {
-            id: Date.now(),
-            title: createBookDto.title,
-            author: createBookDto.author,
-            genre: createBookDto.genre,
-            rating: createBookDto.rating,
-            isFavorite: false,
-        }
+  constructor(
+    @InjectRepository(Book)
+    private bookRepository: Repository<Book>,
+  ) {}
 
-        this.books.push(newBook);
+  //2.create Book
+  async create(createBookDto: CreateBookDto): Promise<Book> {
 
-        return newBook;
-    };
+    const newBook = this.bookRepository.create({
+      ...createBookDto,
+    });
 
-    //3.find All books(by genre)
-    findAll(
+    return this.bookRepository.save(newBook);
+  }
+
+  //3.find All books(by genre)
+  async findAll(
     genre?: string,
     search?: string,
     page: number = 1,
     limit: number = 6,
-    ) {
-        let filteredBooks = this.books;
+  ) {
 
-        if (genre) {
-            filteredBooks = filteredBooks.filter(
-            (book) =>
-                book.genre.toLowerCase() ===
-                genre.toLowerCase(),
-            );
-        }
+    const query = this.bookRepository.createQueryBuilder('book');
 
-        if (search) {
-            filteredBooks = filteredBooks.filter(
-            (book) =>
-                book.title.toLowerCase().includes(search.toLowerCase()) ||
-                book.author.toLowerCase().includes(search.toLowerCase())
-            );
-        }
-
-        const total = filteredBooks.length;
-        const totalPages = Math.ceil(total / limit);
-
-        const start = (page - 1) * limit;
-        const end = start + limit;
-
-        const paginatedBooks = filteredBooks.slice(start, end);
-
-        return {
-            data: paginatedBooks,
-            total,
-            page,
-            totalPages,
-        };
+    if (genre) {
+      query.andWhere('LOWER(book.genre) = LOWER(:genre)', { genre });
     }
 
-
-    //4.update rating
-    updateRating(id:number , rating:number): Book {
-        const book = this.books.find((b) => b.id === id);
-
-        if(!book){
-            throw new NotFoundException('book not found'); //throws 404 error
-        }
-
-        book.rating = rating;
-        return book;
+    if (search) {
+      query.andWhere(
+        '(LOWER(book.title) LIKE LOWER(:search) OR LOWER(book.author) LIKE LOWER(:search))',
+        { search: `%${search}%` },
+      );
     }
 
-    //5.delete book
-    remove(id:number):void {
-        const index = this.books.findIndex((b) => b.id === id);
+    const total = await query.getCount();
 
-        if(index === -1) {
-            throw new NotFoundException('Book not found');
-        }
+    const books = await query
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
 
-        this.books.splice(index,1);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: books,
+      total,
+      page,
+      totalPages,
+    };
+  }
+
+  //4.update rating
+  async updateRating(id: number, rating: number): Promise<Book> {
+
+    const book = await this.bookRepository.findOne({
+      where: { id },
+    });
+
+    if (!book) {
+      throw new NotFoundException('book not found'); //throws 404 error
     }
+
+    book.rating = rating;
+
+    return this.bookRepository.save(book);
+  }
+
+  //5.delete book
+  async remove(id: number): Promise<void> {
+
+    const result = await this.bookRepository.delete(id);
+
+    if (result.affected === 0) {
+      throw new NotFoundException('Book not found');
+    }
+  }
 }
