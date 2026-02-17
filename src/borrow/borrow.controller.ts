@@ -57,6 +57,47 @@ export class BorrowController {
     }
 
 
+    // User requests a book
+    @Roles(Role.USER)
+    @Post('request')
+    requestBook(
+      @Body() body: { bookId: number },
+      @Request() req,
+    ) {
+      return this.borrowService.requestBook(
+        body.bookId,
+        req.user.userId,
+      );
+    }
+
+
+    // Manager views pending requests
+    @Roles(Role.MANAGER)
+    @Get('requests')
+    getPendingRequests() {
+      return this.borrowService.getPendingRequests();
+    }
+
+
+    // Manager approves request
+    @Roles(Role.MANAGER)
+    @Post('approve')
+    approveRequest(@Body() body: { borrowId: number }) {
+      return this.borrowService.approveRequest(body.borrowId);
+    }
+
+
+    // Manager declines request
+    @Roles(Role.MANAGER)
+    @Post('decline')
+    declineRequest(@Body() body: { borrowId: number }) {
+      return this.borrowService.declineRequest(body.borrowId);
+    }
+
+
+
+
+
 
 
 }

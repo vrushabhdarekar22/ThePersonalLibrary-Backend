@@ -9,9 +9,12 @@ import { User } from '../auth/user.entity';
 import { Book } from '../books/book.entity';
 
 export enum BorrowStatus {
+  REQUESTED = 'requested',
   ISSUED = 'issued',
   RETURNED = 'returned',
+  DECLINED = 'declined',
 }
+
 
 @Entity()
 export class Borrow {
@@ -36,7 +39,8 @@ export class Borrow {
 
   @Column({
     type: 'text',
-    default: BorrowStatus.ISSUED,
+    default: BorrowStatus.REQUESTED,
   })
   status: BorrowStatus;
+
 }
