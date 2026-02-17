@@ -1,16 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Book } from './book.entity';
 import { CreateBookDto } from './dto/create-book.dto';
+import sampleBooks from './SampleData.json';
 
 @Injectable() //this basically marks this class as Provider/service
-export class BooksService {
+export class BooksService implements OnModuleInit {
 
   constructor(
     @InjectRepository(Book)
     private bookRepository: Repository<Book>,
   ) {}
+
+  // 🔥 Seed books when module initializes
+  async onModuleInit() {
+    const count = await this.bookRepository.count();
+
+    if (count === 0) {
+      await this.bookRepository.save(sampleBooks);
+      console.log('Sample books seeded successfully');
+    }
+  }
 
   //2.create Book
   async create(createBookDto: CreateBookDto): Promise<Book> {
