@@ -17,7 +17,7 @@ export class BorrowService {
 
     @InjectRepository(User)
     private userRepository: Repository<User>,
-  ) {}
+  ) { }
 
   async issueBook(bookId: number, userId: number, managerId: number) {
 
@@ -69,7 +69,7 @@ export class BorrowService {
 
 
 
-    async returnBook(borrowId: number) {
+  async returnBook(borrowId: number) {
 
     // 1. Find borrow record
     const borrow = await this.borrowRepository.findOne({
@@ -97,62 +97,62 @@ export class BorrowService {
   }
 
 
-    //logic for user can view their borrowd books
-    async getMyBorrowedBooks(userId: number, status?: string) {
+  //logic for user can view their borrowd books
+  async getMyBorrowedBooks(userId: number, status?: string) {
 
     const query = this.borrowRepository.createQueryBuilder('borrow')
-        .leftJoinAndSelect('borrow.book', 'book')
-        .leftJoinAndSelect('borrow.issuedBy', 'issuedBy')
-        .where('borrow.userId = :userId', { userId });
+      .leftJoinAndSelect('borrow.book', 'book')
+      .leftJoinAndSelect('borrow.issuedBy', 'issuedBy')
+      .where('borrow.userId = :userId', { userId });
 
     if (status) {
-        query.andWhere('borrow.status = :status', { status });
+      query.andWhere('borrow.status = :status', { status });
     }
 
     return query
-        .orderBy('borrow.issueDate', 'DESC')
-        .getMany();
-    }
-
-
-
-    async getAllBorrows() {
-        return this.borrowRepository.find({
-        relations: ['book', 'user', 'issuedBy'],
-        order: {
-            issueDate: 'DESC',
-        },
-        });
-    }
-
-
-
-    async requestBook(bookId: number, userId: number) {
-
-      const book = await this.bookRepository.findOne({
-        where: { id: bookId },
-      });
-
-      if (!book) {
-        throw new NotFoundException('Book not found');
-      }
-
-      if (!book.isAvailable) {
-        throw new BadRequestException('Book not available');
-      }
-
-      const borrow = this.borrowRepository.create({
-        book,
-        user: { id: userId },
-        status: BorrowStatus.REQUESTED,
-      });
-
-      return this.borrowRepository.save(borrow);
+      .orderBy('borrow.issueDate', 'DESC')
+      .getMany();
   }
 
 
 
-    async getPendingRequests() {
+  async getAllBorrows() {
+    return this.borrowRepository.find({
+      relations: ['book', 'user', 'issuedBy'],
+      order: {
+        issueDate: 'DESC',
+      },
+    });
+  }
+
+
+
+  async requestBook(bookId: number, userId: number) {
+
+    const book = await this.bookRepository.findOne({
+      where: { id: bookId },
+    });
+
+    if (!book) {
+      throw new NotFoundException('Book not found');
+    }
+
+    if (!book.isAvailable) {
+      throw new BadRequestException('Book not available');
+    }
+
+    const borrow = this.borrowRepository.create({
+      book,
+      user: { id: userId },
+      status: BorrowStatus.REQUESTED,
+    });
+
+    return this.borrowRepository.save(borrow);
+  }
+
+
+
+  async getPendingRequests() {
     return this.borrowRepository.find({
       where: { status: BorrowStatus.REQUESTED },
       relations: ['book', 'user'],
@@ -199,6 +199,14 @@ export class BorrowService {
     borrow.status = BorrowStatus.DECLINED;
 
     return this.borrowRepository.save(borrow);
+  }
+
+
+  async getIssuedBooks() {
+    return this.borrowRepository.find({
+      where: { status: BorrowStatus.ISSUED },
+      relations: ['book', 'user'],
+    });
   }
 
 

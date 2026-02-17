@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request ,Get ,Query} from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Get, Query } from '@nestjs/common';
 import { BorrowService } from './borrow.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -8,7 +8,7 @@ import { Role } from '../auth/role.enum';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('borrow')
 export class BorrowController {
-  constructor(private readonly borrowService: BorrowService) {}
+  constructor(private readonly borrowService: BorrowService) { }
 
   // Manager issues book
   @Roles(Role.MANAGER)
@@ -25,7 +25,7 @@ export class BorrowController {
   }
 
 
-    // Manager returns book
+  // Manager returns book
   @Roles(Role.MANAGER)
   @Post('return')
   returnBook(
@@ -35,64 +35,72 @@ export class BorrowController {
   }
 
 
-    // User views their own borrowed books
+  // User views their own borrowed books
   @Get('my')
-    @Roles(Role.USER)
-    getMyBorrowedBooks(
+  @Roles(Role.USER)
+  getMyBorrowedBooks(
     @Request() req,
     @Query('status') status?: string,
-    ) {
+  ) {
     return this.borrowService.getMyBorrowedBooks(
-        req.user.userId,
-        status,
+      req.user.userId,
+      status,
     );
-    }
+  }
 
-      // Admin views all borrow records
-    @Roles(Role.ADMIN)
-    @Get('all')
-    getAllBorrows() {
-        console.log("I am in controller");
-        return this.borrowService.getAllBorrows();
-    }
-
-
-    // User requests a book
-    @Roles(Role.USER)
-    @Post('request')
-    requestBook(
-      @Body() body: { bookId: number },
-      @Request() req,
-    ) {
-      return this.borrowService.requestBook(
-        body.bookId,
-        req.user.userId,
-      );
-    }
+  // Admin views all borrow records
+  @Roles(Role.ADMIN)
+  @Get('all')
+  getAllBorrows() {
+    console.log("I am in controller");
+    return this.borrowService.getAllBorrows();
+  }
 
 
-    // Manager views pending requests
-    @Roles(Role.MANAGER)
-    @Get('requests')
-    getPendingRequests() {
-      return this.borrowService.getPendingRequests();
-    }
+  // User requests a book
+  @Roles(Role.USER)
+  @Post('request')
+  requestBook(
+    @Body() body: { bookId: number },
+    @Request() req,
+  ) {
+    return this.borrowService.requestBook(
+      body.bookId,
+      req.user.userId,
+    );
+  }
 
 
-    // Manager approves request
-    @Roles(Role.MANAGER)
-    @Post('approve')
-    approveRequest(@Body() body: { borrowId: number }) {
-      return this.borrowService.approveRequest(body.borrowId);
-    }
+  // Manager views pending requests
+  @Roles(Role.MANAGER)
+  @Get('requests')
+  getPendingRequests() {
+    return this.borrowService.getPendingRequests();
+  }
 
 
-    // Manager declines request
-    @Roles(Role.MANAGER)
-    @Post('decline')
-    declineRequest(@Body() body: { borrowId: number }) {
-      return this.borrowService.declineRequest(body.borrowId);
-    }
+  // Manager approves request
+  @Roles(Role.MANAGER)
+  @Post('approve')
+  approveRequest(@Body() body: { borrowId: number }) {
+    return this.borrowService.approveRequest(body.borrowId);
+  }
+
+
+  // Manager declines request
+  @Roles(Role.MANAGER)
+  @Post('decline')
+  declineRequest(@Body() body: { borrowId: number }) {
+    return this.borrowService.declineRequest(body.borrowId);
+  }
+
+
+  // Manager views issued books
+  @Roles(Role.MANAGER)
+  @Get('issued')
+  getIssuedBooks() {
+    return this.borrowService.getIssuedBooks();
+  }
 
 
 

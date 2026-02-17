@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -8,12 +9,18 @@ import { BorrowModule } from './borrow/borrow.module';
 
 @Module({
   imports: [
-    // Database configuration
-    TypeOrmModule.forRoot({
-      type: 'sqlite',
-      database: 'library.db',
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true, // auto create tables (development only)
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'sqlite',
+        database: configService.get<string>('DB_DATABASE'),
+        autoLoadEntities: true,
+        synchronize: true,
+      }),
     }),
 
     BooksModule,
