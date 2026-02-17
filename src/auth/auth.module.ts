@@ -1,17 +1,19 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
-import { User } from './user.entity';
+import { User, UserSchema } from './user.schema';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
-
     ConfigModule,
+
+    MongooseModule.forFeature([
+      { name: User.name, schema: UserSchema },
+    ]),
 
     JwtModule.registerAsync({
       imports: [ConfigModule],

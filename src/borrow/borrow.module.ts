@@ -1,14 +1,18 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { MongooseModule } from '@nestjs/mongoose';
 import { BorrowController } from './borrow.controller';
 import { BorrowService } from './borrow.service';
-import { Borrow } from './borrow.entity';
-import { Book } from '../books/book.entity';
-import { User } from '../auth/user.entity';
+import { Borrow, BorrowSchema } from './borrow.schema';
+import { Book, BookSchema } from '../books/book.schema';
+import { User, UserSchema } from '../auth/user.schema';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Borrow, Book, User]),
+    MongooseModule.forFeature([
+      { name: Borrow.name, schema: BorrowSchema },
+      { name: Book.name, schema: BookSchema },   
+      { name: User.name, schema: UserSchema },    
+    ]),
   ],
   controllers: [BorrowController],
   providers: [BorrowService],
