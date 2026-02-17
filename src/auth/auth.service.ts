@@ -1,80 +1,76 @@
-import { Injectable, UnauthorizedException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
-import { User } from './user.entity';
+import { User, UserDocument } from './user.schema';
 import { Role } from './role.enum';
 
 @Injectable()
 export class AuthService implements OnModuleInit {
 
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
     private jwtService: JwtService,
   ) {}
 
-  // This runs automatically when module starts
+  // 🔥 Seed admin & manager
   async onModuleInit() {
     await this.seedUsers();
   }
 
   private async seedUsers() {
-    const adminExists = await this.userRepository.findOne({
-      where: { email: 'admin@test.com' },
+    const adminExists = await this.userModel.findOne({
+      email: 'admin@test.com',
     });
 
     if (!adminExists) {
-      const admin = this.userRepository.create({
+      await this.userModel.create({
         email: 'admin@test.com',
         password: await bcrypt.hash('admin123', 10),
         role: Role.ADMIN,
       });
-
-      await this.userRepository.save(admin);
     }
 
-    const managerExists = await this.userRepository.findOne({
-      where: { email: 'manager@test.com' },
+    const managerExists = await this.userModel.findOne({
+      email: 'manager@test.com',
     });
 
     if (!managerExists) {
-      const manager = this.userRepository.create({
+      await this.userModel.create({
         email: 'manager@test.com',
         password: await bcrypt.hash('manager123', 10),
         role: Role.MANAGER,
       });
-
-      await this.userRepository.save(manager);
     }
   }
 
   async register(email: string, password: string) {
     const hashed = await bcrypt.hash(password, 10);
 
-    const newUser = this.userRepository.create({
+    await this.userModel.create({
       email,
       password: hashed,
       role: Role.USER,
     });
 
-    await this.userRepository.save(newUser);
-
     return { message: 'User registered successfully' };
   }
 
   async login(email: string, password: string) {
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
+    const user = await this.userModel.findOne({ email });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const payload = {
-      sub: user.id,
+      sub: user._id, 
       email: user.email,
       role: user.role,
     };
@@ -84,9 +80,7 @@ export class AuthService implements OnModuleInit {
     };
   }
 
-  async findById(id: number) {
-    return this.userRepository.findOne({
-      where: { id },
-    });
+  async findById(id: string) {
+    return this.userModel.findById(id);
   }
 }

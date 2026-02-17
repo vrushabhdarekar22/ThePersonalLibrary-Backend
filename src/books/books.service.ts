@@ -1,39 +1,32 @@
 import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Book } from './book.entity';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Book, BookDocument } from './book.schema';
 import { CreateBookDto } from './dto/create-book.dto';
 import sampleBooks from './SampleData.json';
 
-@Injectable() //this basically marks this class as Provider/service
+@Injectable()
 export class BooksService implements OnModuleInit {
 
   constructor(
-    @InjectRepository(Book)
-    private bookRepository: Repository<Book>,
+    @InjectModel(Book.name)
+    private bookModel: Model<BookDocument>,
   ) {}
 
-  // 🔥 Seed books when module initializes
+  // It Seed books when module initializes
   async onModuleInit() {
-    const count = await this.bookRepository.count();
+    const count = await this.bookModel.countDocuments();
 
     if (count === 0) {
-      await this.bookRepository.save(sampleBooks);
+      await this.bookModel.insertMany(sampleBooks);
       console.log('Sample books seeded successfully');
     }
   }
 
-  //2.create Book
-  async create(createBookDto: CreateBookDto): Promise<Book> {
-
-    const newBook = this.bookRepository.create({
-      ...createBookDto,
-    });
-
-    return this.bookRepository.save(newBook);
+  async create(createBookDto: CreateBookDto) {
+    return this.bookModel.create(createBookDto);
   }
 
-  //3.find All books(by genre)
   async findAll(
     genre?: string,
     search?: string,
@@ -41,58 +34,49 @@ export class BooksService implements OnModuleInit {
     limit: number = 6,
   ) {
 
-    const query = this.bookRepository.createQueryBuilder('book');
+    const filter: any = {};
 
     if (genre) {
-      query.andWhere('LOWER(book.genre) = LOWER(:genre)', { genre });
+      filter.genre = new RegExp(`^${genre}$`, 'i');
     }
 
     if (search) {
-      query.andWhere(
-        '(LOWER(book.title) LIKE LOWER(:search) OR LOWER(book.author) LIKE LOWER(:search))',
-        { search: `%${search}%` },
-      );
+      filter.$or = [
+        { title: new RegExp(search, 'i') },
+        { author: new RegExp(search, 'i') },
+      ];
     }
 
-    const total = await query.getCount();
+    const total = await this.bookModel.countDocuments(filter);
 
-    const books = await query
+    const books = await this.bookModel
+      .find(filter)
       .skip((page - 1) * limit)
-      .take(limit)
-      .getMany();
-
-    const totalPages = Math.ceil(total / limit);
+      .limit(limit);
 
     return {
       data: books,
       total,
       page,
-      totalPages,
+      totalPages: Math.ceil(total / limit),
     };
   }
 
-  //4.update rating
-  async updateRating(id: number, rating: number): Promise<Book> {
-
-    const book = await this.bookRepository.findOne({
-      where: { id },
-    });
+  async updateRating(id: string, rating: number) {
+    const book = await this.bookModel.findById(id);
 
     if (!book) {
-      throw new NotFoundException('book not found'); //throws 404 error
+      throw new NotFoundException('Book not found');
     }
 
     book.rating = rating;
-
-    return this.bookRepository.save(book);
+    return book.save();
   }
 
-  //5.delete book
-  async remove(id: number): Promise<void> {
+  async remove(id: string) {
+    const result = await this.bookModel.findByIdAndDelete(id);
 
-    const result = await this.bookRepository.delete(id);
-
-    if (result.affected === 0) {
+    if (!result) {
       throw new NotFoundException('Book not found');
     }
   }

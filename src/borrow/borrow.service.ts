@@ -1,217 +1,158 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Borrow, BorrowStatus } from './borrow.entity';
-import { Book } from '../books/book.entity';
-import { User } from '../auth/user.entity';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Borrow, BorrowDocument, BorrowStatus } from './borrow.schema';
+import { Book, BookDocument } from '../books/book.schema';
+import { User, UserDocument } from '../auth/user.schema';
 
 @Injectable()
 export class BorrowService {
-
   constructor(
-    @InjectRepository(Borrow)
-    private borrowRepository: Repository<Borrow>,
+    @InjectModel(Borrow.name)
+    private borrowModel: Model<BorrowDocument>,
 
-    @InjectRepository(Book)
-    private bookRepository: Repository<Book>,
+    @InjectModel(Book.name)
+    private bookModel: Model<BookDocument>,
 
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-  ) { }
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
+  ) {}
 
-  async issueBook(bookId: number, userId: number, managerId: number) {
+  //Manager directly issues book
+  async issueBook(bookId: string, userId: string, managerId: string) {
+    const book = await this.bookModel.findById(bookId);
+    if (!book) throw new NotFoundException('Book not found');
 
-    // 1. Find book
-    const book = await this.bookRepository.findOne({
-      where: { id: bookId },
-    });
-
-    if (!book) {
-      throw new NotFoundException('Book not found');
-    }
-
-    if (!book.isAvailable) {
+    if (!book.isAvailable)
       throw new BadRequestException('Book is already issued');
-    }
 
-    // 2. Find user (borrower)
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
+    const user = await this.userModel.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    const manager = await this.userModel.findById(managerId);
+    if (!manager) throw new NotFoundException('Manager not found');
 
-    // 3. Find manager
-    const manager = await this.userRepository.findOne({
-      where: { id: managerId },
-    });
-
-    if (!manager) {
-      throw new NotFoundException('Manager not found');
-    }
-
-    // 4. Mark book unavailable
     book.isAvailable = false;
-    await this.bookRepository.save(book);
+    await book.save();
 
-    // 5. Create borrow record
-    const borrow = this.borrowRepository.create({
-      book,
-      user,
-      issuedBy: manager,
+    return this.borrowModel.create({
+      book: book._id,
+      user: user._id,
+      issuedBy: manager._id,
       status: BorrowStatus.ISSUED,
+      issueDate: new Date(),
     });
-
-    return this.borrowRepository.save(borrow);
   }
 
+  // Return book
+  async returnBook(borrowId: string) {
+    const borrow = await this.borrowModel
+      .findById(borrowId)
+      .populate('book');
 
+    if (!borrow) throw new NotFoundException('Borrow record not found');
 
-  async returnBook(borrowId: number) {
-
-    // 1. Find borrow record
-    const borrow = await this.borrowRepository.findOne({
-      where: { id: borrowId },
-      relations: ['book'],
-    });
-
-    if (!borrow) {
-      throw new NotFoundException('Borrow record not found');
-    }
-
-    if (borrow.status === BorrowStatus.RETURNED) {
+    if (borrow.status === BorrowStatus.RETURNED)
       throw new BadRequestException('Book already returned');
-    }
 
-    // 2. Update borrow status
     borrow.status = BorrowStatus.RETURNED;
     borrow.returnDate = new Date();
 
-    // 3. Make book available again
-    borrow.book.isAvailable = true;
-    await this.bookRepository.save(borrow.book);
+    const book = borrow.book as any;
+    book.isAvailable = true;
+    await book.save();
 
-    return this.borrowRepository.save(borrow);
+    return borrow.save();
   }
 
-
-  //logic for user can view their borrowd books
-  async getMyBorrowedBooks(userId: number, status?: string) {
-
-    const query = this.borrowRepository.createQueryBuilder('borrow')
-      .leftJoinAndSelect('borrow.book', 'book')
-      .leftJoinAndSelect('borrow.issuedBy', 'issuedBy')
-      .where('borrow.userId = :userId', { userId });
+  //User views own borrows
+  async getMyBorrowedBooks(userId: string, status?: string) {
+    const filter: any = { user: userId };
 
     if (status) {
-      query.andWhere('borrow.status = :status', { status });
+      filter.status = status;
     }
 
-    return query
-      .orderBy('borrow.issueDate', 'DESC')
-      .getMany();
+    return this.borrowModel
+      .find(filter)
+      .populate('book')
+      .populate('issuedBy')
+      .sort({ issueDate: -1 });
   }
 
-
-
+  // Admin sees all
   async getAllBorrows() {
-    return this.borrowRepository.find({
-      relations: ['book', 'user', 'issuedBy'],
-      order: {
-        issueDate: 'DESC',
-      },
-    });
+    return this.borrowModel
+      .find()
+      .populate('book')
+      .populate('user')
+      .populate('issuedBy')
+      .sort({ issueDate: -1 });
   }
 
+  //User requests book
+  async requestBook(bookId: string, userId: string) {
+    const book = await this.bookModel.findById(bookId);
+    if (!book) throw new NotFoundException('Book not found');
 
-
-  async requestBook(bookId: number, userId: number) {
-
-    const book = await this.bookRepository.findOne({
-      where: { id: bookId },
-    });
-
-    if (!book) {
-      throw new NotFoundException('Book not found');
-    }
-
-    if (!book.isAvailable) {
+    if (!book.isAvailable)
       throw new BadRequestException('Book not available');
-    }
 
-    const borrow = this.borrowRepository.create({
-      book,
-      user: { id: userId },
+    return this.borrowModel.create({
+      book: book._id,
+      user: userId,
       status: BorrowStatus.REQUESTED,
     });
-
-    return this.borrowRepository.save(borrow);
   }
 
-
-
+  //Manager views pending
   async getPendingRequests() {
-    return this.borrowRepository.find({
-      where: { status: BorrowStatus.REQUESTED },
-      relations: ['book', 'user'],
-    });
+    return this.borrowModel
+      .find({ status: BorrowStatus.REQUESTED })
+      .populate('book')
+      .populate('user');
   }
 
+  // Manager approves
+  async approveRequest(borrowId: string) {
+    const borrow = await this.borrowModel
+      .findById(borrowId)
+      .populate('book');
 
-  async approveRequest(borrowId: number) {
+    if (!borrow) throw new NotFoundException('Request not found');
 
-    const borrow = await this.borrowRepository.findOne({
-      where: { id: borrowId },
-      relations: ['book'],
-    });
-
-    if (!borrow) {
-      throw new NotFoundException('Request not found');
-    }
-
-    if (borrow.status !== BorrowStatus.REQUESTED) {
+    if (borrow.status !== BorrowStatus.REQUESTED)
       throw new BadRequestException('Invalid request');
-    }
 
     borrow.status = BorrowStatus.ISSUED;
     borrow.issueDate = new Date();
 
-    borrow.book.isAvailable = false;
-    await this.bookRepository.save(borrow.book);
+    const book = borrow.book as any;
+    book.isAvailable = false;
+    await book.save();
 
-    return this.borrowRepository.save(borrow);
+    return borrow.save();
   }
 
-
-
-  async declineRequest(borrowId: number) {
-
-    const borrow = await this.borrowRepository.findOne({
-      where: { id: borrowId },
-    });
-
-    if (!borrow) {
-      throw new NotFoundException('Request not found');
-    }
+  // Manager declines
+  async declineRequest(borrowId: string) {
+    const borrow = await this.borrowModel.findById(borrowId);
+    if (!borrow) throw new NotFoundException('Request not found');
 
     borrow.status = BorrowStatus.DECLINED;
 
-    return this.borrowRepository.save(borrow);
+    return borrow.save();
   }
 
-
+  // Manager sees issued books
   async getIssuedBooks() {
-    return this.borrowRepository.find({
-      where: { status: BorrowStatus.ISSUED },
-      relations: ['book', 'user'],
-    });
+    return this.borrowModel
+      .find({ status: BorrowStatus.ISSUED })
+      .populate('book')
+      .populate('user');
   }
-
-
-
-
-
-
 }
