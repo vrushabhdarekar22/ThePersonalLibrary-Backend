@@ -127,4 +127,83 @@ export class BorrowService {
 
 
 
+    async requestBook(bookId: number, userId: number) {
+
+      const book = await this.bookRepository.findOne({
+        where: { id: bookId },
+      });
+
+      if (!book) {
+        throw new NotFoundException('Book not found');
+      }
+
+      if (!book.isAvailable) {
+        throw new BadRequestException('Book not available');
+      }
+
+      const borrow = this.borrowRepository.create({
+        book,
+        user: { id: userId },
+        status: BorrowStatus.REQUESTED,
+      });
+
+      return this.borrowRepository.save(borrow);
+  }
+
+
+
+    async getPendingRequests() {
+    return this.borrowRepository.find({
+      where: { status: BorrowStatus.REQUESTED },
+      relations: ['book', 'user'],
+    });
+  }
+
+
+  async approveRequest(borrowId: number) {
+
+    const borrow = await this.borrowRepository.findOne({
+      where: { id: borrowId },
+      relations: ['book'],
+    });
+
+    if (!borrow) {
+      throw new NotFoundException('Request not found');
+    }
+
+    if (borrow.status !== BorrowStatus.REQUESTED) {
+      throw new BadRequestException('Invalid request');
+    }
+
+    borrow.status = BorrowStatus.ISSUED;
+    borrow.issueDate = new Date();
+
+    borrow.book.isAvailable = false;
+    await this.bookRepository.save(borrow.book);
+
+    return this.borrowRepository.save(borrow);
+  }
+
+
+
+  async declineRequest(borrowId: number) {
+
+    const borrow = await this.borrowRepository.findOne({
+      where: { id: borrowId },
+    });
+
+    if (!borrow) {
+      throw new NotFoundException('Request not found');
+    }
+
+    borrow.status = BorrowStatus.DECLINED;
+
+    return this.borrowRepository.save(borrow);
+  }
+
+
+
+
+
+
 }
