@@ -16,13 +16,13 @@ import { Role } from '../auth/role.enum';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('borrow')
 export class BorrowController {
-  constructor(private readonly borrowService: BorrowService) {}
+  constructor(private readonly borrowService: BorrowService) { }
 
   // Manager issues book
   @Roles(Role.MANAGER)
   @Post('issue')
   issueBook(
-    @Body() body: { bookId: string; userId: string }, // ✅ changed
+    @Body() body: { bookId: string; userId: string },
     @Request() req,
   ) {
     return this.borrowService.issueBook(
@@ -36,7 +36,7 @@ export class BorrowController {
   @Roles(Role.MANAGER)
   @Post('return')
   returnBook(
-    @Body() body: { borrowId: string }, // ✅ changed
+    @Body() body: { borrowId: string },
   ) {
     return this.borrowService.returnBook(body.borrowId);
   }
@@ -65,7 +65,7 @@ export class BorrowController {
   @Roles(Role.USER)
   @Post('request')
   requestBook(
-    @Body() body: { bookId: string }, // ✅ changed
+    @Body() body: { bookId: string },
     @Request() req,
   ) {
     return this.borrowService.requestBook(
@@ -85,7 +85,7 @@ export class BorrowController {
   @Roles(Role.MANAGER)
   @Post('approve')
   approveRequest(
-    @Body() body: { borrowId: string }, // ✅ changed
+    @Body() body: { borrowId: string },
   ) {
     return this.borrowService.approveRequest(body.borrowId);
   }
@@ -94,7 +94,7 @@ export class BorrowController {
   @Roles(Role.MANAGER)
   @Post('decline')
   declineRequest(
-    @Body() body: { borrowId: string }, // ✅ changed
+    @Body() body: { borrowId: string },
   ) {
     return this.borrowService.declineRequest(body.borrowId);
   }
@@ -105,4 +105,25 @@ export class BorrowController {
   getIssuedBooks() {
     return this.borrowService.getIssuedBooks();
   }
+
+
+  // Admin & Manager: User-wise borrow analytics
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @Get('analytics/users')
+  getUserBorrowAnalytics(@Query('search') search?: string) {
+    return this.borrowService.getUserBorrowAnalytics(search);
+  }
+
+
+  // Admin & Manager: System summary
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @Get('analytics/summary')
+  getSystemSummary() {
+    return this.borrowService.getSystemSummary();
+  }
+
+
+
+
+
 }
