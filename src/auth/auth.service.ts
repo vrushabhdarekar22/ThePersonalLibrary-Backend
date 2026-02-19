@@ -9,6 +9,8 @@ import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from './user.schema';
 import { Role } from './role.enum';
+import { RegisterDto } from './dto/register.dto';
+
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -17,9 +19,9 @@ export class AuthService implements OnModuleInit {
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
-  // 🔥 Seed admin & manager
+  // Seed admin & manager
   async onModuleInit() {
     await this.seedUsers();
   }
@@ -31,29 +33,41 @@ export class AuthService implements OnModuleInit {
 
     if (!adminExists) {
       await this.userModel.create({
+        fullName: 'Admin User',
         email: 'admin@test.com',
         password: await bcrypt.hash('admin123', 10),
         role: Role.ADMIN,
       });
     }
-
+    
     const managerExists = await this.userModel.findOne({
       email: 'manager@test.com',
     });
-
+    
     if (!managerExists) {
       await this.userModel.create({
+        fullName: 'Manager User',
         email: 'manager@test.com',
         password: await bcrypt.hash('manager123', 10),
         role: Role.MANAGER,
       });
     }
+
   }
 
-  async register(email: string, password: string) {
+  async register(registerDto: RegisterDto) {
+    const { fullName, email, password } = registerDto;
+
+    const existingUser = await this.userModel.findOne({ email });
+
+    if (existingUser) {
+      throw new UnauthorizedException('Email already registered');
+    }
+
     const hashed = await bcrypt.hash(password, 10);
 
     await this.userModel.create({
+      fullName,
       email,
       password: hashed,
       role: Role.USER,
@@ -61,6 +75,7 @@ export class AuthService implements OnModuleInit {
 
     return { message: 'User registered successfully' };
   }
+
 
   async login(email: string, password: string) {
     const user = await this.userModel.findOne({ email });
@@ -70,7 +85,7 @@ export class AuthService implements OnModuleInit {
     }
 
     const payload = {
-      sub: user._id, 
+      sub: user._id,
       email: user.email,
       role: user.role,
     };
