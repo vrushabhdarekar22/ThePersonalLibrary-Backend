@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Book, BookDocument } from './book.schema';
 import { CreateBookDto } from './dto/create-book.dto';
 import sampleBooks from './SampleData.json';
+import { Borrow, BorrowDocument, BorrowStatus } from '../borrow/borrow.schema';
 
 @Injectable()
 export class BooksService implements OnModuleInit {
@@ -11,20 +12,32 @@ export class BooksService implements OnModuleInit {
   constructor(
     @InjectModel(Book.name)
     private bookModel: Model<BookDocument>,
-  ) {}
+
+    @InjectModel(Borrow.name)
+    private borrowModel: Model<BorrowDocument>,
+  ) { }
 
   // It Seed books when module initializes
   async onModuleInit() {
     const count = await this.bookModel.countDocuments();
 
     if (count === 0) {
-      await this.bookModel.insertMany(sampleBooks);
-      console.log('Sample books seeded successfully');
+      const booksWithInventory = sampleBooks.map(book => ({
+        ...book,
+        availableCopies: book.totalCopies,
+      }));
+
+      await this.bookModel.insertMany(booksWithInventory);
     }
   }
 
   async create(createBookDto: CreateBookDto) {
-    return this.bookModel.create(createBookDto);
+    const book = new this.bookModel({
+      ...createBookDto,
+      availableCopies: createBookDto.totalCopies,
+    });
+
+    return book.save();
   }
 
   async findAll(
@@ -74,10 +87,25 @@ export class BooksService implements OnModuleInit {
   }
 
   async remove(id: string) {
-    const result = await this.bookModel.findByIdAndDelete(id);
+    const book = await this.bookModel.findById(id);
 
-    if (!result) {
+    if (!book) {
       throw new NotFoundException('Book not found');
     }
+
+    const activeBorrow = await this.borrowModel.findOne({
+      book: id,
+      status: BorrowStatus.ISSUED,
+    });
+
+    if (activeBorrow) {
+      throw new BadRequestException(
+        'Cannot delete book with issued copies',
+      );
+    }
+
+    await this.bookModel.findByIdAndDelete(id);
+
+    return { message: 'Book deleted successfully' };
   }
 }

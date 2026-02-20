@@ -18,19 +18,19 @@ import { Role } from '../auth/role.enum';
 export class BorrowController {
   constructor(private readonly borrowService: BorrowService) { }
 
-  // Manager issues book
-  @Roles(Role.MANAGER)
-  @Post('issue')
-  issueBook(
-    @Body() body: { bookId: string; userId: string },
-    @Request() req,
-  ) {
-    return this.borrowService.issueBook(
-      body.bookId,
-      body.userId,
-      req.user.userId,
-    );
-  }
+  // // Manager issues book
+  // @Roles(Role.MANAGER)
+  // @Post('issue')
+  // issueBook(
+  //   @Body() body: { bookId: string; userId: string },
+  //   @Request() req,
+  // ) {
+  //   return this.borrowService.issueBook(
+  //     body.bookId,
+  //     body.userId,
+  //     req.user.userId,
+  //   );
+  // }
 
   // Manager returns book
   @Roles(Role.MANAGER)

@@ -22,49 +22,33 @@ export class BorrowService {
     private userModel: Model<UserDocument>,
   ) { }
 
-  // Manager directly issues book
-  async issueBook(bookId: string, userId: string, managerId: string) {
-    const book = await this.bookModel.findById(bookId);
-    if (!book) throw new NotFoundException('Book not found');
-
-    if (!book.isAvailable)
-      throw new BadRequestException('Book is already issued');
-
-    const user = await this.userModel.findById(userId);
-    if (!user) throw new NotFoundException('User not found');
-
-    const manager = await this.userModel.findById(managerId);
-    if (!manager) throw new NotFoundException('Manager not found');
-
-    book.isAvailable = false;
-    await book.save();
-
-    return this.borrowModel.create({
-      book: book._id,
-      user: new Types.ObjectId(user._id),
-      issuedBy: new Types.ObjectId(manager._id),
-      status: BorrowStatus.ISSUED,
-      issueDate: new Date(),
-    });
-  }
 
   // Return book
   async returnBook(borrowId: string) {
-    const borrow = await this.borrowModel
-      .findById(borrowId)
-      .populate('book');
+    const borrow = await this.borrowModel.findById(borrowId);
 
-    if (!borrow) throw new NotFoundException('Borrow record not found');
+    if (!borrow) {
+      throw new NotFoundException('Borrow record not found');
+    }
 
-    if (borrow.status === BorrowStatus.RETURNED)
-      throw new BadRequestException('Book already returned');
+    if (borrow.status !== BorrowStatus.ISSUED) {
+      throw new BadRequestException('Book is not currently issued');
+    }
+
+    const book = await this.bookModel.findById(borrow.book);
+    if (!book) {
+      throw new NotFoundException('Book not found');
+    }
+
+    if (book.availableCopies >= book.totalCopies) {
+      throw new BadRequestException('Invalid return operation');
+    }
+
+    book.availableCopies += 1;
+    await book.save();
 
     borrow.status = BorrowStatus.RETURNED;
     borrow.returnDate = new Date();
-
-    const book = borrow.book as any;
-    book.isAvailable = true;
-    await book.save();
 
     return borrow.save();
   }
@@ -101,8 +85,20 @@ export class BorrowService {
     const book = await this.bookModel.findById(bookId);
     if (!book) throw new NotFoundException('Book not found');
 
-    if (!book.isAvailable)
-      throw new BadRequestException('Book not available');
+    if (book.availableCopies <= 0)
+      throw new BadRequestException('Book is out of stock');
+
+    const existing = await this.borrowModel.findOne({
+      user: new Types.ObjectId(userId),
+      book: new Types.ObjectId(bookId),
+      status: { $in: [BorrowStatus.REQUESTED, BorrowStatus.ISSUED] },
+    });
+
+    if (existing) {
+      throw new BadRequestException(
+        'You already requested or borrowed this book',
+      );
+    }
 
     return this.borrowModel.create({
       book: book._id,
@@ -121,21 +117,31 @@ export class BorrowService {
 
   //  Manager approves request
   async approveRequest(borrowId: string) {
-    const borrow = await this.borrowModel
-      .findById(borrowId)
-      .populate('book');
+    const borrow = await this.borrowModel.findById(borrowId);
 
-    if (!borrow) throw new NotFoundException('Request not found');
+    if (!borrow) {
+      throw new NotFoundException('Request not found');
+    }
 
-    if (borrow.status !== BorrowStatus.REQUESTED)
+    if (borrow.status !== BorrowStatus.REQUESTED) {
       throw new BadRequestException('Invalid request');
+    }
+
+    const book = await this.bookModel.findById(borrow.book);
+
+    if (!book) {
+      throw new NotFoundException('Book not found');
+    }
+
+    if (book.availableCopies <= 0) {
+      throw new BadRequestException('Book is out of stock');
+    }
+
+    book.availableCopies -= 1;
+    await book.save();
 
     borrow.status = BorrowStatus.ISSUED;
     borrow.issueDate = new Date();
-
-    const book = borrow.book as any;
-    book.isAvailable = false;
-    await book.save();
 
     return borrow.save();
   }
@@ -225,7 +231,7 @@ export class BorrowService {
           email: "$userInfo.email",
           totalBorrowed: 1,
           currentlyIssued: 1,
-          totalReturned: 1,   
+          totalReturned: 1,
         },
       },
 

@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, Min, Max, IsInt } from 'class-validator';
 
 //it is basically validates structure of book
 export class CreateBookDto {
@@ -17,4 +17,8 @@ export class CreateBookDto {
   @Min(1)
   @Max(5)
   rating: number;
+
+  @IsInt()
+  @Min(0)
+  totalCopies: number;
 }
