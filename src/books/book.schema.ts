@@ -17,8 +17,11 @@ export class Book {
   @Prop({ default: 3 })
   rating: number;
 
-  @Prop({ default: true })
-  isAvailable: boolean;
+  @Prop({ required: true, min: 0 })
+  totalCopies: number;
+
+  @Prop({ required: true, min: 0 })
+  availableCopies: number;
 }
 
 export const BookSchema = SchemaFactory.createForClass(Book);
