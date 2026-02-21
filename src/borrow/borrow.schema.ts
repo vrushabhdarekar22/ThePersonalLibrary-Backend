@@ -25,11 +25,22 @@ export class Borrow {
   @Prop({ enum: BorrowStatus, default: BorrowStatus.REQUESTED })
   status: BorrowStatus;
 
+  // When manager approves
   @Prop({ default: null })
   issueDate: Date;
 
+ 
+  @Prop({ default: null })
+  dueDate: Date;
+
+  // When returned
   @Prop({ default: null })
   returnDate: Date;
+
+  // 10 per day
+  @Prop({ default: 0 })
+  fineAmount: number;
 }
+
 
 export const BorrowSchema = SchemaFactory.createForClass(Borrow);

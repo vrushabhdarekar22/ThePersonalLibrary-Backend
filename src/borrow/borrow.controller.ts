@@ -6,6 +6,7 @@ import {
   Request,
   Get,
   Query,
+  Param,
 } from '@nestjs/common';
 import { BorrowService } from './borrow.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -102,8 +103,8 @@ export class BorrowController {
   // Manager views issued books
   @Roles(Role.MANAGER)
   @Get('issued')
-  getIssuedBooks() {
-    return this.borrowService.getIssuedBooks();
+  getIssuedBooks(@Query('search') search?: string) {
+    return this.borrowService.getIssuedBooks(search);
   }
 
 
@@ -120,6 +121,12 @@ export class BorrowController {
   @Get('analytics/summary')
   getSystemSummary() {
     return this.borrowService.getSystemSummary();
+  }
+
+  @Roles(Role.USER, Role.MANAGER, Role.ADMIN)
+  @Get(':id/fine')
+  getFine(@Param('id') id: string) {
+    return this.borrowService.calculateFine(id);
   }
 
 
