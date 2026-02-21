@@ -1,6 +1,6 @@
 import {
   Injectable,
-  UnauthorizedException,
+  UnauthorizedException,//throws 401
   OnModuleInit,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -35,7 +35,7 @@ export class AuthService implements OnModuleInit {
       await this.userModel.create({
         fullName: 'Admin User',
         email: 'admin@test.com',
-        password: await bcrypt.hash('admin123', 10),
+        password: await bcrypt.hash('admin123', 10),//10 means => Repeat the hashing process 2^10 times internally.
         role: Role.ADMIN,
       });
     }

@@ -28,8 +28,8 @@ export class RolesGuard implements CanActivate {
       return false; // authentication failed
     }
 
-    console.log('Required Roles:', requiredRoles);
-    console.log('User Role:', user.role);
+    // console.log('Required Roles:', requiredRoles);
+    // console.log('User Role:', user.role);
 
     return requiredRoles.includes(user.role);
   }

@@ -48,7 +48,18 @@ export class BorrowService {
     await book.save();
 
     borrow.status = BorrowStatus.RETURNED;
-    borrow.returnDate = new Date();
+
+    const now = new Date();
+    borrow.returnDate = now;
+
+    // Fine calculation
+    if (borrow.dueDate && now > borrow.dueDate) {
+      const diffTime = now.getTime() - borrow.dueDate.getTime();
+      const daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      borrow.fineAmount = daysLate * 10;
+    } else {
+      borrow.fineAmount = 0;
+    }
 
     return borrow.save();
   }
@@ -141,7 +152,13 @@ export class BorrowService {
     await book.save();
 
     borrow.status = BorrowStatus.ISSUED;
-    borrow.issueDate = new Date();
+
+    const now = new Date();
+    borrow.issueDate = now;
+
+    const due = new Date();
+    due.setDate(now.getDate() + 7);
+    borrow.dueDate = due;
 
     return borrow.save();
   }
@@ -157,11 +174,51 @@ export class BorrowService {
   }
 
   //  Manager sees issued books
-  async getIssuedBooks() {
-    return this.borrowModel
-      .find({ status: BorrowStatus.ISSUED })
-      .populate('book')
-      .populate('user');
+  async getIssuedBooks(search?: string) {
+    const matchStage: any = {
+      status: BorrowStatus.ISSUED,
+    };
+
+    const pipeline: any[] = [
+      { $match: matchStage },
+
+      {
+        $lookup: {
+          from: 'books',
+          localField: 'book',
+          foreignField: '_id',
+          as: 'book',
+        },
+      },
+      { $unwind: '$book' },
+
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      { $unwind: '$user' },
+    ];
+
+    if (search) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { 'book.title': { $regex: search, $options: 'i' } },
+            { 'user.email': { $regex: search, $options: 'i' } },
+          ],
+        },
+      });
+    }
+
+    pipeline.push({
+      $sort: { issueDate: -1 },
+    });
+
+    return this.borrowModel.aggregate(pipeline);
   }
 
   //  User-wise Borrow Analytics
@@ -251,9 +308,100 @@ export class BorrowService {
       status: BorrowStatus.REQUESTED,
     });
 
+    // 1️⃣ Total Fine Collected (All Time)
+    const fineResult = await this.borrowModel.aggregate([
+      { $match: { status: BorrowStatus.RETURNED } },
+      {
+        $group: {
+          _id: null,
+          totalFineCollected: { $sum: "$fineAmount" },
+        },
+      },
+    ]);
+
+    const totalFineCollected =
+      fineResult.length > 0 ? fineResult[0].totalFineCollected : 0;
+
+    // This Month Fine
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const monthlyFineResult = await this.borrowModel.aggregate([
+      {
+        $match: {
+          status: BorrowStatus.RETURNED,
+          returnDate: { $gte: startOfMonth },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          monthlyFine: { $sum: "$fineAmount" },
+        },
+      },
+    ]);
+
+    const monthlyFine =
+      monthlyFineResult.length > 0 ? monthlyFineResult[0].monthlyFine : 0;
+
+    // Outstanding Fine (Issued & Late)
+    const issuedBorrows = await this.borrowModel.find({
+      status: BorrowStatus.ISSUED,
+    });
+
+    let outstandingFine = 0;
+    const now = new Date();
+
+    for (const borrow of issuedBorrows) {
+      if (borrow.dueDate && now > borrow.dueDate) {
+        const diffTime = now.getTime() - borrow.dueDate.getTime();
+        const daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        outstandingFine += daysLate * 10;
+      }
+    }
+
     return {
       totalIssued,
       totalPending,
+      totalFineCollected,
+      monthlyFine,
+      outstandingFine,
+    };
+  }
+
+  //dynamic fine calculation
+  async calculateFine(borrowId: string) {
+    const borrow = await this.borrowModel.findById(borrowId);
+
+    if (!borrow) {
+      throw new NotFoundException('Borrow record not found');
+    }
+
+    if (!borrow.issueDate || !borrow.dueDate) {
+      return {
+        borrowId: borrow._id,
+        fine: 0,
+        daysLate: 0,
+      };
+    }
+
+    const now = new Date();
+    const comparisonDate = borrow.returnDate || now;
+
+    let daysLate = 0;
+    let fine = 0;
+
+    if (comparisonDate > borrow.dueDate) {
+      const diffTime = comparisonDate.getTime() - borrow.dueDate.getTime();
+      daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      fine = daysLate * 10;
+    }
+
+    return {
+      borrowId: borrow._id,
+      fine,
+      daysLate,
     };
   }
 

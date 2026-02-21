@@ -11,10 +11,11 @@ import { FavoritesModule } from './favorites/favorites.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
+    ConfigModule.forRoot({ //loads .env
       isGlobal: true,
     }),
 
+    //this connects app to the MongoDB
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
