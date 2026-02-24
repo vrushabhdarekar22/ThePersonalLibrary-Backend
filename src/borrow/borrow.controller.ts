@@ -14,10 +14,15 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/role.enum';
 
+import { RequestBookDto } from './dto/request-book.dto';
+import { ApproveRequestDto } from './dto/approve-request.dto';
+import { DeclineRequestDto } from './dto/decline-request.dto';
+import { ReturnBookDto } from './dto/return-book.dto';
+
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('borrow')
 export class BorrowController {
-  constructor(private readonly borrowService: BorrowService) { }
+  constructor(private readonly borrowService: BorrowService) {}
 
   // // Manager issues book
   // @Roles(Role.MANAGER)
@@ -37,9 +42,9 @@ export class BorrowController {
   @Roles(Role.MANAGER)
   @Post('return')
   returnBook(
-    @Body() body: { borrowId: string },
+    @Body() dto: ReturnBookDto,
   ) {
-    return this.borrowService.returnBook(body.borrowId);
+    return this.borrowService.returnBook(dto.borrowId);
   }
 
   // User views their own borrowed books
@@ -66,11 +71,11 @@ export class BorrowController {
   @Roles(Role.USER)
   @Post('request')
   requestBook(
-    @Body() body: { bookId: string },
+    @Body() dto: RequestBookDto,
     @Request() req,
   ) {
     return this.borrowService.requestBook(
-      body.bookId,
+      dto.bookId,
       req.user.userId,
     );
   }
@@ -86,18 +91,18 @@ export class BorrowController {
   @Roles(Role.MANAGER)
   @Post('approve')
   approveRequest(
-    @Body() body: { borrowId: string },
+    @Body() dto: ApproveRequestDto,
   ) {
-    return this.borrowService.approveRequest(body.borrowId);
+    return this.borrowService.approveRequest(dto.borrowId);
   }
 
   // Manager declines request
   @Roles(Role.MANAGER)
   @Post('decline')
   declineRequest(
-    @Body() body: { borrowId: string },
+    @Body() dto: DeclineRequestDto,
   ) {
-    return this.borrowService.declineRequest(body.borrowId);
+    return this.borrowService.declineRequest(dto.borrowId);
   }
 
   // Manager views issued books
@@ -107,14 +112,12 @@ export class BorrowController {
     return this.borrowService.getIssuedBooks(search);
   }
 
-
   // Admin & Manager: User-wise borrow analytics
   @Roles(Role.ADMIN, Role.MANAGER)
   @Get('analytics/users')
   getUserBorrowAnalytics(@Query('search') search?: string) {
     return this.borrowService.getUserBorrowAnalytics(search);
   }
-
 
   // Admin & Manager: System summary
   @Roles(Role.ADMIN, Role.MANAGER)
@@ -128,9 +131,4 @@ export class BorrowController {
   getFine(@Param('id') id: string) {
     return this.borrowService.calculateFine(id);
   }
-
-
-
-
-
 }
