@@ -35,7 +35,10 @@ export class BorrowService {
       throw new BadRequestException('Book is not currently issued');
     }
 
-    const book = await this.bookModel.findById(borrow.book);
+    const book = await this.bookModel.findOne({
+      _id: borrow.book,
+      isDeleted: false,
+    });
     if (!book) {
       throw new NotFoundException('Book not found');
     }
@@ -94,10 +97,14 @@ export class BorrowService {
   // User requests book
   async requestBook(bookId: string, userId: string) {
     const book = await this.bookModel.findById(bookId);
-    if (!book) throw new NotFoundException('Book not found');
 
-    if (book.availableCopies <= 0)
+    if (!book || book.isDeleted) {
+      throw new NotFoundException('Book not found');
+    }
+
+    if (book.availableCopies <= 0) {
       throw new BadRequestException('Book is out of stock');
+    }
 
     const existing = await this.borrowModel.findOne({
       user: new Types.ObjectId(userId),
@@ -122,7 +129,10 @@ export class BorrowService {
   async getPendingRequests() {
     return this.borrowModel
       .find({ status: BorrowStatus.REQUESTED })
-      .populate('book')
+      .populate({
+        path: 'book',
+        match: { isDeleted: false },
+      })
       .populate('user');
   }
 
@@ -138,7 +148,10 @@ export class BorrowService {
       throw new BadRequestException('Invalid request');
     }
 
-    const book = await this.bookModel.findById(borrow.book);
+    const book = await this.bookModel.findOne({
+      _id: borrow.book,
+      isDeleted: false,
+    });
 
     if (!book) {
       throw new NotFoundException('Book not found');
@@ -201,6 +214,11 @@ export class BorrowService {
         },
       },
       { $unwind: '$user' },
+      {
+        $match: {
+          'book.isDeleted': false,
+        },
+      },
     ];
 
     if (search) {

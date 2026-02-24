@@ -15,11 +15,12 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/role.enum';
+import { UpdateRatingDto } from './dto/update-rating.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('books')
 export class BooksController {
-  constructor(private readonly booksService: BooksService) {}
+  constructor(private readonly booksService: BooksService) { }
 
   @Get()
   findAll(
@@ -44,16 +45,20 @@ export class BooksController {
 
   @Roles(Role.ADMIN, Role.MANAGER)
   @Patch(':id')
+  @Patch(':id')
   updateRating(
-    @Param('id') id: string,   
-    @Body('rating') rating: number,
+    @Param('id') id: string,
+    @Body() updateRatingDto: UpdateRatingDto,
   ) {
-    return this.booksService.updateRating(id, rating);
+    return this.booksService.updateRating(
+      id,
+      updateRatingDto.rating,
+    );
   }
 
   @Roles(Role.ADMIN)
   @Delete(':id')
-  remove(@Param('id') id: string) {  
+  remove(@Param('id') id: string) {
     return this.booksService.remove(id);
   }
 }

@@ -22,6 +22,15 @@ export class Book {
 
   @Prop({ required: true, min: 0 })
   availableCopies: number;
+
+  @Prop({ default: false })
+  isDeleted: boolean;
 }
 
 export const BookSchema = SchemaFactory.createForClass(Book);
+
+//unique book 
+BookSchema.index(
+  { title: 1, author: 1, isDeleted: 1 },
+  { unique: true }
+);
