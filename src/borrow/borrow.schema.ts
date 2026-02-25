@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-export type BorrowDocument = Borrow & Document;
+export type BorrowDocument = Borrow & Document; //all fields of Borrow class+Mongo features(._id,etc)
 
 export enum BorrowStatus {
   REQUESTED = 'requested',

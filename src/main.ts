@@ -4,11 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule); //it just create app like express
-  app.enableCors({
-    origin: 'http://localhost:5173',
-    methods: 'GET,POST,PATCH,DELETE',
-    credentials: true,
-  })
+  app.enableCors();
 
    //Enable DTO validation globally
   app.useGlobalPipes(

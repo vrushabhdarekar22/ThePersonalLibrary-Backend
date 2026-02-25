@@ -109,7 +109,7 @@ export class BorrowService {
     const existing = await this.borrowModel.findOne({
       user: new Types.ObjectId(userId),
       book: new Types.ObjectId(bookId),
-      status: { $in: [BorrowStatus.REQUESTED, BorrowStatus.ISSUED] },
+      status: { $in: [BorrowStatus.REQUESTED, BorrowStatus.ISSUED]},
     });
 
     if (existing) {
@@ -254,10 +254,10 @@ export class BorrowService {
       {
         $addFields: {
           userObjectId: {
-            $cond: [
-              { $eq: [{ $type: "$user" }, "string"] },
-              { $toObjectId: "$user" },
-              "$user"
+            $cond: [ 
+              { $eq: [{ $type: "$user" }, "string"] }, //condn
+              { $toObjectId: "$user" }, //if true
+              "$user" //if false  
             ]
           }
         }
@@ -265,7 +265,7 @@ export class BorrowService {
       {
         $group: {
           _id: "$userObjectId",
-          totalBorrowed: { $sum: 1 },
+          totalBorrowed: { $sum: 1 }, // for each record add 1 to sum
           currentlyIssued: {
             $sum: {
               $cond: [
@@ -286,7 +286,7 @@ export class BorrowService {
           }
         }
       },
-      {
+      { // similar to join in sql
         $lookup: {
           from: "users",
           localField: "_id",
@@ -294,17 +294,17 @@ export class BorrowService {
           as: "userInfo",
         },
       },
-      { $unwind: "$userInfo" },
+      { $unwind: "$userInfo" }, // removes array wrapper []
 
       { $match: matchStage },
 
       {
         $project: {
-          _id: 0,
+          _id: 0,//0-> not include
           userId: "$_id",
           fullName: "$userInfo.fullName",
           email: "$userInfo.email",
-          totalBorrowed: 1,
+          totalBorrowed: 1,//1->include in final result
           currentlyIssued: 1,
           totalReturned: 1,
         },
@@ -326,7 +326,7 @@ export class BorrowService {
       status: BorrowStatus.REQUESTED,
     });
 
-    // 1️⃣ Total Fine Collected (All Time)
+    // 1 Total Fine Collected (All Time)
     const fineResult = await this.borrowModel.aggregate([
       { $match: { status: BorrowStatus.RETURNED } },
       {
@@ -388,7 +388,7 @@ export class BorrowService {
     };
   }
 
-  //dynamic fine calculation
+  //dynamic fine calculation -> current fine
   async calculateFine(borrowId: string) {
     const borrow = await this.borrowModel.findById(borrowId);
 
