@@ -77,11 +77,26 @@ export class BorrowService {
       filter.status = status;
     }
 
-    return this.borrowModel
+    const borrows = await this.borrowModel
       .find(filter)
       .populate('book')
       .populate('issuedBy')
       .sort({ issueDate: -1 });
+
+    const now = new Date();
+
+    return borrows.map((borrow) => {
+      if (
+        borrow.status === BorrowStatus.ISSUED &&
+        borrow.dueDate &&
+        now > borrow.dueDate
+      ) {
+        const diffTime = now.getTime() - borrow.dueDate.getTime();
+        const daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return { ...borrow.toObject(), fineAmount: daysLate * 10 };
+      }
+      return borrow;
+    });
   }
 
   // Admin sees all borrows
